@@ -1,7 +1,8 @@
 # CIFAR10 dataset
 *.tar.gz
-data/cifar-10-batches-py/
 cifar-10-batches-py/
+data/cifar-10-batches-py/
+tests/cifar-10-batches-py/
 
 
 # Byte-compiled / optimized / DLL files
