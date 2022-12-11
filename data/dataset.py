@@ -4,6 +4,9 @@ import numpy as np
 import requests
 import tarfile
 import pickle
+from torch.utils.data import Dataset
+from torchvision.transforms import Compose, Resize, ToTensor
+import cv2
 
 # Constants
 LINKS = {
@@ -58,6 +61,23 @@ def get_cifar10():
     
     return train_data, train_labels, test_data, test_labels
 
-if __name__ == '__main__':
-    get_cifar10()
+class CIFAR10(Dataset):
+    def __init__(self, data, labels):
+        self.data = data
+        self.labels = labels
+
+    def __len__(self):
+        return self.data.shape[0]
+
+    def __getitem__(self, index):
+        label = self.labels[index]
+        img = self.data[index]
+        
+        img = np.interp(img, (0, 255), (0, +1))
+        img = np.reshape(img, (3, 32, 32))
+        # img = np.transpose(img, (1, 2, 0))
+        # img = cv2.resize(img, dsize=(224, 224), interpolation=cv2.INTER_CUBIC)
+        # img = np.transpose(img, (2, 0, 1))
+        return img, label
+
 
