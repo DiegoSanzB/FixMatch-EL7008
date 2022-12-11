@@ -75,9 +75,7 @@ class CIFAR10(Dataset):
         
         img = np.interp(img, (0, 255), (0, +1))
         img = np.reshape(img, (3, 32, 32))
-        # img = np.transpose(img, (1, 2, 0))
-        # img = cv2.resize(img, dsize=(224, 224), interpolation=cv2.INTER_CUBIC)
-        # img = np.transpose(img, (2, 0, 1))
+        
         return img, label
 
 
