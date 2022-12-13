@@ -4,6 +4,14 @@ cifar-10-batches-py/
 data/cifar-10-batches-py/
 tests/cifar-10-batches-py/
 
+# pytorch checkpoints
+*.pt
+
+# PDFs
+*.pdf
+
+# imgs
+*.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

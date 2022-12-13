@@ -5,7 +5,7 @@ import numpy as np
 
 BATCH_SIZE = 1024
 EPOCHS = 50
-PATIENCE = 5
+PATIENCE = 8
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 logger = logging.getLogger(__name__)
