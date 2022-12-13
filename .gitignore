@@ -13,6 +13,9 @@ tests/cifar-10-batches-py/
 # imgs
 *.png
 
+# numpy saves
+*.npy
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

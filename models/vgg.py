@@ -1,5 +1,5 @@
 #import torch.nn
-from torch.nn import Module, Conv2d, Linear, MaxPool2d
+from torch.nn import Sequential, Module, Conv2d, Linear, MaxPool2d, BatchNorm2d
 from torch.nn.functional import relu, batch_norm
 
 # https://www.researchgate.net/publication/317425461_Training_Quantized_Nets_A_Deeper_Understanding
@@ -21,17 +21,22 @@ class VGG9(Module):
         self.fc8 = Linear(in_features=1024, out_features=1024)
         self.fc9 = Linear(in_features=1024, out_features=10)
 
+        self.bn128 = BatchNorm2d(128)
+        self.bn256 = BatchNorm2d(256)
+        self.bn512 = BatchNorm2d(512)
+
+
     def forward(self, x):
-        x = relu(self.conv1(x))
-        x = relu(self.conv2(x))
+        x = self.bn128(relu(self.conv1(x)))
+        x = self.bn128(relu(self.conv2(x)))
         x = self.maxpooling(x)
 
-        x = relu(self.conv3(x))
-        x = relu(self.conv4(x))
+        x = self.bn256(relu(self.conv3(x)))
+        x = self.bn256(relu(self.conv4(x)))
         x = self.maxpooling(x)
 
-        x = relu(self.conv5(x))
-        x = relu(self.conv6(x))
+        x = self.bn512(relu(self.conv5(x)))
+        x = self.bn512(relu(self.conv6(x)))
         x = self.maxpooling(x)
 
         # flatten
@@ -41,6 +46,8 @@ class VGG9(Module):
         x = relu(self.fc9(x))
 
         return x
+
+
 
 
 class VGG16(Module):
