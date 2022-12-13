@@ -5,8 +5,8 @@ import numpy as np
 from data.augmentation import RandAugment, SoftAugment
 from utils import DEVICE
 
-EPOCHS = 100
-PATIENCE = 10
+EPOCHS = 50
+PATIENCE = 5
 N, M = 2, 10
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
             inputs_u, labels_u = next(iter_unsupervised)
             inputs_u = inputs_u.float()
             labels_u = labels_u.to(DEVICE)
-            # we don't use the real unsupervised labels during training
+            # we don't use the real unsupervised labels during training, only for impurity
 
             # compute supervised loss   
             optimizer.zero_grad()
@@ -76,15 +76,18 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
             # Process soft augmented data
             soft_output = model(soft_tensor)
             soft_output = softmax(soft_output)
+            
             # Create pseudo labels
             soft_max, soft_argmax = torch.max(soft_output, dim=1)
             soft_threshold = soft_max.ge(tau).float().to(DEVICE)
+            
             # compute impurity and mask rate
             surpassed_threshold += soft_threshold.sum()
-            incorrect_predictions += (soft_argmax.ne(labels_u)) * soft_threshold
+            incorrect_predictions += ((soft_argmax.ne(labels_u)) * soft_threshold).sum()
             
             # Process strong augmented data
             strong_output = model(strong_tensor)
+            
             # Get loss from strong augmentation given the pseudo labels
             unsupervised_loss = criterion(strong_output, soft_argmax) * soft_threshold
             unsupervised_loss = unsupervised_loss.mean()     
@@ -99,8 +102,8 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
         supervised_losses.append(epoch_loss_supervised/len(iter_supervised))
         unsupervised_losses.append(epoch_loss_unsupervised/len(iter_supervised))
 
-        impurity.append(incorrect_predictions / surpassed_threshold)
-        mask_rate.append(surpassed_threshold / len(iter_unsupervised))
+        impurity.append((incorrect_predictions / surpassed_threshold).item())
+        mask_rate.append((surpassed_threshold / len(iter_unsupervised)).item())
 
         # Validation with val_loader
         model.eval()
@@ -140,11 +143,11 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     epoch_cp = checkpoint['epoch']
-    supervised_loss_cp = checkpoint['supervised_loss']
-    unsupervised_loss_cp = checkpoint['unsupervised_loss']
-    val_loss_cp = checkpoint['val_loss']
+    #supervised_loss_cp = checkpoint['supervised_loss']
+    #unsupervised_loss_cp = checkpoint['unsupervised_loss']
+    #val_loss_cp = checkpoint['val_loss']
 
-    logger.info(f' Loaded model from epoch {epoch_cp} with supervised loss {supervised_loss_cp: .5f}, unsupervised loss {unsupervised_loss_cp: .5f} and val loss {val_loss_cp: .5f} ')
+    logger.info(f' Loaded model from epoch {epoch_cp}') # with supervised loss {supervised_loss_cp: .5f}, unsupervised loss {unsupervised_loss_cp: .5f} and val loss {val_loss_cp: .5f} 
 
     return np.array(supervised_losses), np.array(unsupervised_losses), np.array(val_loss), np.array(impurity), np.array(mask_rate)
 
