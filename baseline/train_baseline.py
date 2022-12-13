@@ -14,7 +14,8 @@ logging.basicConfig(level=logging.INFO)
 def train(model, train_loader, val_loader, optimizer, criterion, checkpoint_path):
     train_loss = []
     val_loss = []
-    min_loss_val = 1e5
+    
+    min_val_loss = 1e5
     epoch_of_min_loss = 0
 
     logger.info(f'Starting training...')
@@ -49,13 +50,13 @@ def train(model, train_loader, val_loader, optimizer, criterion, checkpoint_path
                 loss = criterion(outputs, labels_val.to(torch.long))
                 loss_epoch_val += loss.item()
 
-            val_loss.append(loss_epoch_val/len(val_loader))
+        val_loss.append(loss_epoch_val/len(val_loader))
 
         # Info of current epoch
-        logger.info(f'\t|| Epoch {epoch:02d} with training loss {train_loss[-1]: .5f} and validation loss {val_loss[-1]: .5f}')
+        logger.info(f'\t|| Epoch {epoch:02d} with training loss {train_loss[-1]: .5f} and validation loss {val_loss[-1]: .5f} ||')
 
         # Patience implementation
-        if min_loss_val > val_loss[-1]:
+        if min_val_loss > val_loss[-1]:
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
@@ -63,11 +64,11 @@ def train(model, train_loader, val_loader, optimizer, criterion, checkpoint_path
                 'train_loss': train_loss[-1],
                 'val_loss': val_loss[-1]
             }, checkpoint_path)
-            min_loss_val = val_loss[-1]
+            min_val_loss = val_loss[-1]
             epoch_of_min_loss = epoch
 
         if epoch > (epoch_of_min_loss + PATIENCE):
-            logger.info(f'\t|| Early stop at epoch {epoch}, loading model from best epoch...')
+            logger.info(f'\t|| Early stop at epoch {epoch}, loading model from best epoch ||')
             break
     
         
@@ -79,31 +80,8 @@ def train(model, train_loader, val_loader, optimizer, criterion, checkpoint_path
     train_loss_cp = checkpoint['train_loss']
     val_loss_cp = checkpoint['val_loss']
 
-    logger.info(f'\t\t Loaded model from epoch {epoch_cp} with train loss {train_loss_cp} and val loss {val_loss_cp}')
+    logger.info(f' Loaded model from epoch {epoch_cp} with train loss {train_loss_cp: .5f} and val loss {val_loss_cp: .5f} ')
 
     return np.array(train_loss), np.array(val_loss)
-
-
-def prediction(model, dataloader):
-    model.eval()
-
-    labels_true = []
-    labels_pred = []
-
-    with torch.no_grad():
-        for i, data in enumerate(dataloader, 0):
-            inputs = data[0].float().to(DEVICE)
-            labels = data[1].to(DEVICE)
-
-            outputs = model(inputs)
-            pred = outputs.argmax(axis=1)
-
-            for i in labels:
-                labels_true.append(i.item())
-
-            for i in pred:
-                labels_pred.append(i.item())
-
-    return np.array(labels_true), np.array(labels_pred)
 
     
