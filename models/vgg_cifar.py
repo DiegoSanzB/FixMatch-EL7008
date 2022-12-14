@@ -44,7 +44,7 @@ class VGG11_BN(Module):
         self.avgpool = AdaptiveAvgPool2d((1, 1))
 
         self.classifier = Sequential(
-            Linear(512 * 4096),
+            Linear(512 * 1 * 1, 4096),
             ReLU(True),
             Dropout(),
             Linear(4096, 4096),
