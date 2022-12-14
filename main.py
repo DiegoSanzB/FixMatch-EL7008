@@ -1,7 +1,8 @@
 import logging
 from data.dataset import get_cifar10, CIFAR10
 from models.vgg import VGG16, VGG9
-from models.myNet import MyNet
+from models.vgg_cifar import VGG11_BN
+from models.myNet import MyNet, NetCN4
 from utils import accuracy_confusion, plot_loss, plot_impurity_mask_rate, prediction
 from sklearn.model_selection import train_test_split
 import torch
@@ -31,7 +32,7 @@ if __name__ == '__main__':
     )
     supervised_data, unsupervised_data, supervised_labels, unsupervised_labels = train_test_split(
         train_data, train_labels,
-        train_size=0.1, random_state=SEED, shuffle=SHUFFLE
+        train_size=0.15, random_state=SEED, shuffle=SHUFFLE
     )
     # setup datasets
     Cifar10_supervised = CIFAR10(supervised_data, supervised_labels)
@@ -58,12 +59,12 @@ if __name__ == '__main__':
     assert len(supervised_loader) == len(unsupervised_loader)
 
     # initialize model, criterion and optimizer
-    net = MyNet()
+    net = NetCN4()
     net.to(DEVICE)
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
     # training
-    supervised_loss, unsupervised_loss, val_loss, impurity, mask_rate = train_fixmatch(
+    supervised_loss, unsupervised_loss, val_loss, impurity, mask_rate, mask_rate_class = train_fixmatch(
         net, supervised_loader, unsupervised_loader, val_loader, optimizer,
         criterion, CHECKPOINT_PATH
     )
@@ -80,4 +81,4 @@ if __name__ == '__main__':
 
     plot_loss((supervised_loss + unsupervised_loss, val_loss), ('Train', 'Validation'), 'fixmatch_loss.png')
 
-    plot_impurity_mask_rate(impurity, mask_rate, 'fixmatch_impurity_mask_rate.png')
+    plot_impurity_mask_rate(impurity, mask_rate, mask_rate_class, 'fixmatch_impurity_mask_rate.png')

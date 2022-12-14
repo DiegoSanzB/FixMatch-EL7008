@@ -31,8 +31,8 @@ def plot_loss(losses, legends, path):
     plt.show()
 
 
-def plot_impurity_mask_rate(impurity, mask_rate, path):
-    f, axis = plt.subplots(1, 2)
+def plot_impurity_mask_rate(impurity, mask_rate, mask_rate_class, path):
+    f, axis = plt.subplots(1, 3, figsize=(15, 5))
     x = np.arange(impurity.shape[0])
 
     axis[0].plot(x, impurity)
@@ -44,11 +44,23 @@ def plot_impurity_mask_rate(impurity, mask_rate, path):
     for ax in axis.flat:
         ax.set(xlabel='Epoch')
 
+    tau = mask_rate_class[0]
+    epochs = len(mask_rate_class) - 1
+    mask_rate_per_class = np.zeros((10, epochs))
+    for i, tup in enumerate(mask_rate_class[1: ]):
+        soft_max, soft_argmax = tup
+        for j, val in enumerate(soft_max):
+            if val > tau:
+                mask_rate_per_class[int(soft_argmax[j]), i] += 1
+
+    for i, row in enumerate(mask_rate_per_class):
+        axis[2].plot(x, row, label=f'Class {i}')
+    axis[2].set_title('Mask Rate per class')
+    axis[2].legend()
+
     plt.savefig(path)
     plt.show()
     
-    
-
 
 def prediction(model, dataloader):
     model.eval()

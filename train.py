@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 import logging
 import numpy as np
-from data.augmentation import RandAugment, SoftAugment
+from data.augmentation import SoftAugment, RandAugment, MyAugment
 from utils import DEVICE
 
-EPOCHS = 50
-PATIENCE = 5
+EPOCHS = 100
+PATIENCE = 10
 N, M = 2, 10
 
 logger = logging.getLogger(__name__)
@@ -18,27 +18,33 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
     supervised_losses = []
     unsupervised_losses = []
     mask_rate = []
+    mask_rate_class = [tau]
     impurity = []
     val_loss = []
 
+    # Define augmentations
     soft_augmentation = SoftAugment()
     strong_augmentation = RandAugment(N, M)
     softmax = nn.Softmax(dim=1)
 
+    # Initialize variables for patience early stop
     min_val_loss = 1e5
     epoch_of_min_loss = 0
 
     for epoch in range(EPOCHS):
         model.train()
+        # Create iterators for loaders
+        iter_supervised = iter(supervised_loader)
+        iter_unsupervised = iter(unsupervised_loader)   
 
         epoch_loss_supervised = 0
         epoch_loss_unsupervised = 0
 
-        iter_supervised = iter(supervised_loader)
-        iter_unsupervised = iter(unsupervised_loader)   
-
         surpassed_threshold = 0
         incorrect_predictions = 0
+
+        epoch_soft_max = np.empty(0)
+        epoch_soft_argmax = np.empty(0)
 
         for i in range(len(iter_supervised)):
             inputs_s, labels_s = next(iter_supervised)
@@ -58,14 +64,14 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
 
             # compute unsupervised loss
             unsupervised_loss = 0
-            soft_tensor = torch.empty(0)
-            strong_tensor = torch.empty(0)
+            soft_tensor = torch.empty(0).to(DEVICE)
+            strong_tensor = torch.empty(0).to(DEVICE)
 
             # Soft and strong augment current batch
             for j in range(inputs_u.shape[0]):
                 img = inputs_u[j, :, :, :]
-                soft_img = torch.tensor(soft_augmentation(img)).float()
-                strong_img = torch.tensor(strong_augmentation(img)).float()
+                soft_img = torch.tensor(soft_augmentation(img)).float().to(DEVICE)
+                strong_img = torch.tensor(strong_augmentation(img)).float().to(DEVICE)
 
                 soft_tensor = torch.cat((soft_tensor, torch.unsqueeze(soft_img, dim=0)), dim=0)
                 strong_tensor = torch.cat((strong_tensor, torch.unsqueeze(strong_img, dim=0)), dim=0)
@@ -98,12 +104,17 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
             loss = supervised_loss + unsupervised_loss * lambda_u
             loss.backward()
             optimizer.step()
+
+            epoch_soft_max = np.hstack((epoch_soft_max, soft_max.cpu().detach().numpy()))
+            epoch_soft_argmax = np.hstack((epoch_soft_argmax, soft_argmax.cpu().detach().numpy()))
         
         supervised_losses.append(epoch_loss_supervised/len(iter_supervised))
         unsupervised_losses.append(epoch_loss_unsupervised/len(iter_supervised))
 
         impurity.append((incorrect_predictions / surpassed_threshold).item())
-        mask_rate.append((surpassed_threshold / len(iter_unsupervised)).item())
+        mask_rate.append((surpassed_threshold / inputs_u.shape[0]).item() / len(iter_unsupervised))
+
+        mask_rate_class.append((epoch_soft_max, epoch_soft_argmax))
 
         # Validation with val_loader
         model.eval()
@@ -132,11 +143,11 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
             min_val_loss = val_loss[-1]
             epoch_of_min_loss = epoch
 
+        logger.info(f'\t|| Epoch {epoch:02d} with supervised loss {supervised_losses[-1]: .5f}, unsupervised loss {unsupervised_losses[-1]: .5f} and validation loss {val_loss[-1]: .5f} ||')
+
         if epoch > (epoch_of_min_loss + PATIENCE):
             logger.info(f'\t|| Early stop at epoch {epoch}, loading model from best epoch ||')
             break
-
-        logger.info(f'\t|| Epoch {epoch:02d} with supervised loss {supervised_losses[-1]: .5f}, unsupervised loss {unsupervised_losses[-1]: .5f} and validation loss {val_loss[-1]: .5f} ||')
 
     # Load model of best epoch
     checkpoint = torch.load(checkpoint_path)
@@ -149,7 +160,7 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
 
     logger.info(f' Loaded model from epoch {epoch_cp}') # with supervised loss {supervised_loss_cp: .5f}, unsupervised loss {unsupervised_loss_cp: .5f} and val loss {val_loss_cp: .5f} 
 
-    return np.array(supervised_losses), np.array(unsupervised_losses), np.array(val_loss), np.array(impurity), np.array(mask_rate)
+    return np.array(supervised_losses), np.array(unsupervised_losses), np.array(val_loss), np.array(impurity), np.array(mask_rate), mask_rate_class
 
 
 
