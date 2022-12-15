@@ -3,9 +3,10 @@ import logging
 import numpy as np
 import requests
 import tarfile
+import torch
 import pickle
 from torch.utils.data import Dataset
-from torchvision.transforms import Compose, Resize, ToTensor
+from torchvision import transforms
 import cv2
 
 # Constants
@@ -20,8 +21,7 @@ logging.basicConfig(level=logging.INFO)
 def to_image(image, side):
     return np.reshape(image, (3, side, side))
 
-def unpickle(file):
-    
+def unpickle(file):   
     with open(file, 'rb') as fo:
         dict = pickle.load(fo, encoding='bytes')
     return dict
@@ -65,6 +65,9 @@ class CIFAR10(Dataset):
     def __init__(self, data, labels):
         self.data = data
         self.labels = labels
+        self.mean = (0.4914, 0.4822, 0.4465)
+        self.std = (0.2471, 0.2435, 0.2616)
+        self.normalize = transforms.Normalize(self.mean, self.std)
 
     def __len__(self):
         return self.data.shape[0]
@@ -75,6 +78,7 @@ class CIFAR10(Dataset):
         
         img = np.interp(img, (0, 255), (0, +1))
         img = np.reshape(img, (3, 32, 32))
+        #img = self.normalize(torch.tensor(img).float())
         
         return img, label
 
