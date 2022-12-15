@@ -38,6 +38,15 @@ class VGG11_BN(Module):
             BatchNorm2d(512),
             ReLU(inplace=True),
 
+            MaxPool2d(kernel_size=2, stride=2),
+
+            Conv2d(512, 512, kernel_size=3, padding=1),
+            BatchNorm2d(512),
+            ReLU(inplace=True),
+            Conv2d(512, 512, kernel_size=3, padding=1),
+            BatchNorm2d(512),
+            ReLU(inplace=True),
+
             MaxPool2d(kernel_size=2, stride=2)
         )
         

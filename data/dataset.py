@@ -21,8 +21,7 @@ logging.basicConfig(level=logging.INFO)
 def to_image(image, side):
     return np.reshape(image, (3, side, side))
 
-def unpickle(file):
-    
+def unpickle(file):   
     with open(file, 'rb') as fo:
         dict = pickle.load(fo, encoding='bytes')
     return dict
@@ -77,9 +76,9 @@ class CIFAR10(Dataset):
         label = self.labels[index]
         img = self.data[index]
         
-        #img = np.interp(img, (0, 255), (0, +1))
+        img = np.interp(img, (0, 255), (0, +1))
         img = np.reshape(img, (3, 32, 32))
-        img = self.normalize(torch.tensor(img).float())
+        #img = self.normalize(torch.tensor(img).float())
         
         return img, label
 

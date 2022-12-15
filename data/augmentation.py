@@ -56,11 +56,13 @@ def solarize(img, t):
     return PIL.ImageOps.solarize(img, t)
 
 
-def translate_x(img, l): 
+def translate_x(img, l):
+    l = int(l * img.size[0]) 
     return img.transform(img.size, Image.AFFINE, (1, 0, l, 0, 1, 0))
 
 
 def translate_y(img, l):
+    l = int(l * img.size[0])
     return img.transform(img.size, Image.AFFINE, (1, 0, 1, 0, 1, l))
 
 
@@ -73,7 +75,6 @@ def mirror(img, _):
 
 
 class WaveDeformer:
-
     def transform(self, x, y):
         y = y + 10*np.sin(x/4)
         return x, y
@@ -150,6 +151,9 @@ class SoftAugment():
     def __call__(self, img):
         return img
 
+from torchvision import transforms
+import torch
+
 class MyAugment():
     def __init__(self, n, m):
         self.n = n
@@ -157,7 +161,7 @@ class MyAugment():
         self.transformations = my_augment_transformations()
 
     def __call__(self, img):
-        img = Image.fromarray(np.uint8(np.transpose(img, (2, 1, 0))*255), 'RGB')
+        img = Image.fromarray(np.uint8(np.transpose(img, (2, 1, 0))*255))
         selected_index = np.random.choice(len(self.transformations), self.n, replace=False)
         selected_transformations = np.array(self.transformations)[selected_index]
         logger.debug(selected_index)
@@ -166,6 +170,8 @@ class MyAugment():
                 amplitude = np.random.randint(0, self.m)
                 parameter = float(amplitude) * (max - min) / 10 + min if min is not None else 0
                 img = transformation(img, parameter)
+                logger.debug(transformation)
+                logger.debug(parameter)
         
         return np.transpose(img, (2, 1, 0))/255
 
@@ -176,7 +182,7 @@ class RandAugment():
         self.transformations = rand_augment_transformations()
 
     def __call__(self, img):
-        img = Image.fromarray(np.uint8(np.transpose(img, (2, 1, 0))*255), 'RGB')
+        img = Image.fromarray(np.uint8(np.transpose(img, (2, 1, 0))*255))
         selected_index = np.random.choice(len(self.transformations), self.n, replace=False)
         selected_transformations = np.array(self.transformations)[selected_index]
         logger.debug(selected_index)

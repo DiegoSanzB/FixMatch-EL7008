@@ -7,7 +7,7 @@ from utils import DEVICE
 
 EPOCHS = 100
 PATIENCE = 10
-N, M = 2, 10
+N, M = 3, 10
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -15,6 +15,7 @@ logging.basicConfig(level=logging.INFO)
 def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, optimizer, 
                     criterion, checkpoint_path, tau=0.95, lambda_u=1):
     logger.info(f'Starting fixmatch training...')
+    # Initialize arrays for collecting metrics
     supervised_losses = []
     unsupervised_losses = []
     mask_rate = []
@@ -24,7 +25,7 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
 
     # Define augmentations
     soft_augmentation = SoftAugment()
-    strong_augmentation = RandAugment(N, M)
+    strong_augmentation = MyAugment(N, M)
     softmax = nn.Softmax(dim=1)
 
     # Initialize variables for patience early stop
@@ -33,7 +34,7 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
 
     for epoch in range(EPOCHS):
         model.train()
-        # Create iterators for loaders
+        # Create iterators for loaders (must have same len)
         iter_supervised = iter(supervised_loader)
         iter_unsupervised = iter(unsupervised_loader)   
 
@@ -47,14 +48,14 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
         epoch_soft_argmax = np.empty(0)
 
         for i in range(len(iter_supervised)):
+            # Get current batches for supervised (s) and unsupervised (u) data and labels
             inputs_s, labels_s = next(iter_supervised)
             inputs_s = inputs_s.float().to(DEVICE)
             labels_s = labels_s.to(DEVICE)
             
             inputs_u, labels_u = next(iter_unsupervised)
             inputs_u = inputs_u.float()
-            labels_u = labels_u.to(DEVICE)
-            # we don't use the real unsupervised labels during training, only for impurity
+            labels_u = labels_u.to(DEVICE)  # we don't use the real unsupervised labels during training, only for impurity calculation
 
             # compute supervised loss   
             optimizer.zero_grad()
@@ -64,10 +65,10 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
 
             # compute unsupervised loss
             unsupervised_loss = 0
+
+            # Soft and strong augment current unsupervised batch
             soft_tensor = torch.empty(0).to(DEVICE)
             strong_tensor = torch.empty(0).to(DEVICE)
-
-            # Soft and strong augment current batch
             for j in range(inputs_u.shape[0]):
                 img = inputs_u[j, :, :, :]
                 soft_img = torch.tensor(soft_augmentation(img)).float().to(DEVICE)
@@ -87,7 +88,7 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
             soft_max, soft_argmax = torch.max(soft_output, dim=1)
             soft_threshold = soft_max.ge(tau).float().to(DEVICE)
             
-            # compute impurity and mask rate
+            # Compute impurity and mask rate
             surpassed_threshold += soft_threshold.sum()
             incorrect_predictions += ((soft_argmax.ne(labels_u)) * soft_threshold).sum()
             
@@ -107,7 +108,8 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
 
             epoch_soft_max = np.hstack((epoch_soft_max, soft_max.cpu().detach().numpy()))
             epoch_soft_argmax = np.hstack((epoch_soft_argmax, soft_argmax.cpu().detach().numpy()))
-        
+
+        # Append all data necessary for metrics calculation        
         supervised_losses.append(epoch_loss_supervised/len(iter_supervised))
         unsupervised_losses.append(epoch_loss_unsupervised/len(iter_supervised))
 
@@ -154,11 +156,8 @@ def train_fixmatch(model, supervised_loader, unsupervised_loader, val_loader, op
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     epoch_cp = checkpoint['epoch']
-    #supervised_loss_cp = checkpoint['supervised_loss']
-    #unsupervised_loss_cp = checkpoint['unsupervised_loss']
-    #val_loss_cp = checkpoint['val_loss']
-
-    logger.info(f' Loaded model from epoch {epoch_cp}') # with supervised loss {supervised_loss_cp: .5f}, unsupervised loss {unsupervised_loss_cp: .5f} and val loss {val_loss_cp: .5f} 
+    
+    logger.info(f' Loaded model from epoch {epoch_cp}')
 
     return np.array(supervised_losses), np.array(unsupervised_losses), np.array(val_loss), np.array(impurity), np.array(mask_rate), mask_rate_class
 
